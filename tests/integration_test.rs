@@ -613,6 +613,51 @@ fn test_special_characters() {
 
 // New test: Env vars
 #[test]
+fn test_purge_cache() {
+    let env = TestEnv::new();
+
+    // Create an entry
+    env.cmd()
+        .arg("echo")
+        .arg("test")
+        .assert()
+        .success()
+        .stdout("test\n");
+
+    // Ensure we have an entry
+    env.assert_cache_entry_count(1);
+
+    // Purge the cache
+    env.cmd().arg("--purge").assert().success();
+
+    // Ensure cache is empty
+    env.assert_cache_entry_count(0);
+}
+
+#[test]
+fn test_purge_exclusivity() {
+    let env = TestEnv::new();
+
+    // Should fail with a command provided
+    env.cmd()
+        .arg("--purge")
+        .arg("echo")
+        .arg("test")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+
+    // Should fail with an env var provided
+    env.cmd()
+        .arg("--purge")
+        .arg("-e")
+        .arg("FOO")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+}
+
+#[test]
 fn test_env_vars() {
     let env = TestEnv::new();
 

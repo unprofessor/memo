@@ -38,7 +38,7 @@
   - On retrieval, if entry has expiration and is expired, treat as cache miss
 - [ ] Argument to evict existing entry
   - e.g. `--evict` to remove existing cache entry for the given command
-- [ ] Argument to purge all cache entries
+- [x] Argument to purge all cache entries
   - e.g. `--purge` to clear the entire cache
   - Not to be used with command to cache; only purges cache
 - [ ] Configuration file support

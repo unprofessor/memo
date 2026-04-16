@@ -91,6 +91,17 @@ pub fn ensure_cache_dir(cache_dir: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Purge the entire cache directory
+///
+/// This removes the cache directory and all its contents, then recreates it
+/// with appropriate permissions.
+pub fn purge_cache(cache_dir: &Path) -> io::Result<()> {
+    if cache_dir.exists() {
+        fs::remove_dir_all(cache_dir)?;
+    }
+    ensure_cache_dir(cache_dir)
+}
+
 /// Check if a memo is complete (the digest directory exists with all three files)
 ///
 /// Returns `true` if the `<digest>/` directory exists with `meta.json`, `stdout`, and `stderr`.

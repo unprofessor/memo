@@ -102,8 +102,16 @@ struct Cli {
     )]
     env: Option<Vec<String>>,
 
+    /// Purge all cache entries
+    #[arg(long, conflicts_with_all = ["env", "command"], help = "Purge all cache entries")]
+    purge: bool,
+
     /// Command to execute/memoize
-    #[arg(trailing_var_arg = true, required = true, allow_hyphen_values = true)]
+    #[arg(
+        trailing_var_arg = true,
+        required_unless_present = "purge",
+        allow_hyphen_values = true
+    )]
     command: Vec<String>,
 }
 
@@ -146,6 +154,13 @@ fn run(args: Cli) -> Result<i32> {
 
     // Get cache directory
     let cache_dir = get_cache_dir()?;
+
+    if args.purge {
+        info!("purging cache at {}", cache_dir.display());
+        crate::cache::purge_cache(&cache_dir)?;
+        return Ok(0);
+    }
+
     ensure_cache_dir(&cache_dir)?;
 
     // Clean up any orphaned temp directories from previous crashes
