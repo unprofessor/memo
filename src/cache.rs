@@ -1,9 +1,9 @@
 //! Cache management for memoized command execution
 //!
-//! This module handles all file I/O operations for the memo cache, including:
+//! This module handles all file I/O operations for the shmemo cache, including:
 //! - Cache directory management
 //! - File path generation
-//! - Memo metadata storage and retrieval
+//! - Shmemo metadata storage and retrieval
 //! - Output streaming
 //! - Atomic directory-based concurrency control
 //!
@@ -23,8 +23,8 @@
 //! 4. Orphaned temp directories are cleaned up on startup
 
 use crate::constants::CACHE_DIR_PERMISSIONS;
-use crate::error::{MemoError, Result};
-use crate::memo::Memo;
+use crate::error::{ShmemoError, Result};
+use crate::shmemo::Shmemo;
 use chrono::Utc;
 use std::fs::{self, File};
 use std::io::{self, copy};
@@ -42,12 +42,12 @@ use std::os::unix::fs::PermissionsExt;
 /// # Examples
 ///
 /// ```no_run
-/// # use memo::cache::is_memo_disabled;
-/// if is_memo_disabled() {
+/// # use shmemo::cache::is_shmemo_disabled;
+/// if is_shmemo_disabled() {
 ///     println!("Memoization is disabled");
 /// }
 /// ```
-pub fn is_memo_disabled() -> bool {
+pub fn is_shmemo_disabled() -> bool {
     std::env::var("SHMEMO_DISABLE")
         .map(|val| val == "1")
         .unwrap_or(false)
@@ -60,7 +60,7 @@ pub fn is_memo_disabled() -> bool {
 /// # Examples
 ///
 /// ```no_run
-/// # use memo::cache::get_cache_dir;
+/// # use shmemo::cache::get_cache_dir;
 /// let cache_dir = get_cache_dir().expect("Failed to get cache directory");
 /// println!("Cache directory: {:?}", cache_dir);
 /// ```
@@ -69,7 +69,7 @@ pub fn get_cache_dir() -> Result<PathBuf> {
         PathBuf::from(xdg)
     } else {
         dirs::home_dir()
-            .ok_or(MemoError::HomeNotFound)?
+            .ok_or(ShmemoError::HomeNotFound)?
             .join(".cache")
     };
     Ok(base.join("shmemo"))
@@ -102,10 +102,10 @@ pub fn purge_cache(cache_dir: &Path) -> io::Result<()> {
     ensure_cache_dir(cache_dir)
 }
 
-/// Check if a memo is complete (the digest directory exists with all three files)
+/// Check if a shmemo is complete (the digest directory exists with all three files)
 ///
 /// Returns `true` if the `<digest>/` directory exists with `meta.json`, `stdout`, and `stderr`.
-pub fn memo_complete(cache_dir: &Path, digest: &str) -> bool {
+pub fn shmemo_complete(cache_dir: &Path, digest: &str) -> bool {
     let digest_dir = cache_dir.join(digest);
     digest_dir.join("meta.json").exists()
         && digest_dir.join("stdout").exists()
@@ -275,10 +275,10 @@ pub fn cleanup_temp_dirs(cache_dir: &Path) -> io::Result<()> {
 }
 
 #[cfg(test)]
-pub fn write_memo(
+pub fn write_shmemo(
     cache_dir: &Path,
     digest: &str,
-    memo: &Memo,
+    shmemo: &Shmemo,
     stdout: &[u8],
     stderr: &[u8],
 ) -> io::Result<()> {
@@ -287,7 +287,7 @@ pub fn write_memo(
 
     let (json_path, out_path, err_path) = get_cache_paths_in_dir(&digest_dir);
 
-    let json = serde_json::to_string_pretty(memo)?;
+    let json = serde_json::to_string_pretty(shmemo)?;
     fs::write(json_path, json)?;
     fs::write(out_path, stdout)?;
     fs::write(err_path, stderr)?;
@@ -296,16 +296,16 @@ pub fn write_memo(
 }
 
 #[cfg(test)]
-pub fn read_memo(cache_dir: &Path, digest: &str) -> io::Result<(Memo, Vec<u8>, Vec<u8>)> {
+pub fn read_shmemo(cache_dir: &Path, digest: &str) -> io::Result<(Shmemo, Vec<u8>, Vec<u8>)> {
     let digest_dir = cache_dir.join(digest);
     let (json_path, out_path, err_path) = get_cache_paths_in_dir(&digest_dir);
 
     let json = fs::read_to_string(json_path)?;
-    let memo: Memo = serde_json::from_str(&json)?;
+    let shmemo: Shmemo = serde_json::from_str(&json)?;
     let stdout = fs::read(out_path)?;
     let stderr = fs::read(err_path)?;
 
-    Ok((memo, stdout, stderr))
+    Ok((shmemo, stdout, stderr))
 }
 
 /// Stream cached stdout to the given writer
@@ -334,13 +334,13 @@ pub fn stream_stderr<W: io::Write>(
     Ok(())
 }
 
-/// Read just the memo metadata without loading output files
-pub fn read_memo_metadata(cache_dir: &Path, digest: &str) -> io::Result<Memo> {
+/// Read just the shmemo metadata without loading output files
+pub fn read_shmemo_metadata(cache_dir: &Path, digest: &str) -> io::Result<Shmemo> {
     let digest_dir = cache_dir.join(digest);
     let json_path = digest_dir.join("meta.json");
     let json = fs::read_to_string(json_path)?;
-    let memo: Memo = serde_json::from_str(&json)?;
-    Ok(memo)
+    let shmemo: Shmemo = serde_json::from_str(&json)?;
+    Ok(shmemo)
 }
 
 #[cfg(test)]
@@ -374,12 +374,12 @@ mod tests {
     }
 
     #[test]
-    fn test_write_and_read_memo() {
+    fn test_write_and_read_shmemo() {
         let (_temp, cache_dir) = setup_test_cache();
         ensure_cache_dir(&cache_dir).unwrap();
 
         let digest = "abc123";
-        let memo = Memo {
+        let shmemo = Shmemo {
             cmd: vec!["echo".to_string(), "test".to_string()],
             env: std::collections::BTreeMap::new(),
             exit_code: 0,
@@ -390,24 +390,24 @@ mod tests {
         let stdout = b"test output\n";
         let stderr = b"test error\n";
 
-        write_memo(&cache_dir, digest, &memo, stdout, stderr).unwrap();
+        write_shmemo(&cache_dir, digest, &shmemo, stdout, stderr).unwrap();
 
-        let (read_memo, read_stdout, read_stderr) = read_memo(&cache_dir, digest).unwrap();
+        let (read_shmemo, read_stdout, read_stderr) = read_shmemo(&cache_dir, digest).unwrap();
 
-        assert_eq!(read_memo.cmd, memo.cmd);
-        assert_eq!(read_memo.exit_code, memo.exit_code);
-        assert_eq!(read_memo.digest, memo.digest);
+        assert_eq!(read_shmemo.cmd, shmemo.cmd);
+        assert_eq!(read_shmemo.exit_code, shmemo.exit_code);
+        assert_eq!(read_shmemo.digest, shmemo.digest);
         assert_eq!(read_stdout, stdout);
         assert_eq!(read_stderr, stderr);
     }
 
     #[test]
-    fn test_write_memo_empty_output() {
+    fn test_write_shmemo_empty_output() {
         let (_temp, cache_dir) = setup_test_cache();
         ensure_cache_dir(&cache_dir).unwrap();
 
         let digest = "empty123";
-        let memo = Memo {
+        let shmemo = Shmemo {
             cmd: vec!["true".to_string()],
             env: std::collections::BTreeMap::new(),
             exit_code: 0,
@@ -416,20 +416,20 @@ mod tests {
             expires_at: None,
         };
 
-        write_memo(&cache_dir, digest, &memo, b"", b"").unwrap();
+        write_shmemo(&cache_dir, digest, &shmemo, b"", b"").unwrap();
 
-        let (_, stdout, stderr) = read_memo(&cache_dir, digest).unwrap();
+        let (_, stdout, stderr) = read_shmemo(&cache_dir, digest).unwrap();
         assert_eq!(stdout, b"");
         assert_eq!(stderr, b"");
     }
 
     #[test]
-    fn test_write_memo_binary_data() {
+    fn test_write_shmemo_binary_data() {
         let (_temp, cache_dir) = setup_test_cache();
         ensure_cache_dir(&cache_dir).unwrap();
 
         let digest = "binary123";
-        let memo = Memo {
+        let shmemo = Shmemo {
             cmd: vec!["binary".to_string()],
             env: std::collections::BTreeMap::new(),
             exit_code: 0,
@@ -439,19 +439,19 @@ mod tests {
         };
         let binary_data = vec![0x00, 0x01, 0xFF, 0xFE, 0x7F];
 
-        write_memo(&cache_dir, digest, &memo, &binary_data, &binary_data).unwrap();
+        write_shmemo(&cache_dir, digest, &shmemo, &binary_data, &binary_data).unwrap();
 
-        let (_, stdout, stderr) = read_memo(&cache_dir, digest).unwrap();
+        let (_, stdout, stderr) = read_shmemo(&cache_dir, digest).unwrap();
         assert_eq!(stdout, binary_data);
         assert_eq!(stderr, binary_data);
     }
 
     #[test]
-    fn test_read_nonexistent_memo() {
+    fn test_read_nonexistent_shmemo() {
         let (_temp, cache_dir) = setup_test_cache();
         ensure_cache_dir(&cache_dir).unwrap();
 
-        let result = read_memo(&cache_dir, "nonexistent");
+        let result = read_shmemo(&cache_dir, "nonexistent");
         assert!(result.is_err());
     }
 
@@ -463,7 +463,7 @@ mod tests {
         let digest1 = "multi1";
         let digest2 = "multi2";
 
-        let memo1 = Memo {
+        let shmemo1 = Shmemo {
             cmd: vec!["echo".to_string(), "one".to_string()],
             env: std::collections::BTreeMap::new(),
             exit_code: 0,
@@ -472,7 +472,7 @@ mod tests {
             expires_at: None,
         };
 
-        let memo2 = Memo {
+        let shmemo2 = Shmemo {
             cmd: vec!["echo".to_string(), "two".to_string()],
             env: std::collections::BTreeMap::new(),
             exit_code: 1,
@@ -481,11 +481,11 @@ mod tests {
             expires_at: None,
         };
 
-        write_memo(&cache_dir, digest1, &memo1, b"one\n", b"").unwrap();
-        write_memo(&cache_dir, digest2, &memo2, b"two\n", b"err\n").unwrap();
+        write_shmemo(&cache_dir, digest1, &shmemo1, b"one\n", b"").unwrap();
+        write_shmemo(&cache_dir, digest2, &shmemo2, b"two\n", b"err\n").unwrap();
 
-        let (read1, out1, err1) = read_memo(&cache_dir, digest1).unwrap();
-        let (read2, out2, err2) = read_memo(&cache_dir, digest2).unwrap();
+        let (read1, out1, err1) = read_shmemo(&cache_dir, digest1).unwrap();
+        let (read2, out2, err2) = read_shmemo(&cache_dir, digest2).unwrap();
 
         assert_eq!(read1.cmd, vec!["echo", "one"]);
         assert_eq!(read2.cmd, vec!["echo", "two"]);
@@ -501,7 +501,7 @@ mod tests {
         ensure_cache_dir(&cache_dir).unwrap();
 
         let digest = "names123";
-        let memo = Memo {
+        let shmemo = Shmemo {
             cmd: vec!["test".to_string()],
             env: std::collections::BTreeMap::new(),
             exit_code: 0,
@@ -510,7 +510,7 @@ mod tests {
             expires_at: None,
         };
 
-        write_memo(&cache_dir, digest, &memo, b"out", b"err").unwrap();
+        write_shmemo(&cache_dir, digest, &shmemo, b"out", b"err").unwrap();
 
         let digest_dir = cache_dir.join(digest);
         assert!(digest_dir.join("meta.json").exists());
@@ -536,7 +536,7 @@ mod tests {
         ensure_cache_dir(&cache_dir).unwrap();
 
         let digest = "large123";
-        let memo = Memo {
+        let shmemo = Shmemo {
             cmd: vec!["large".to_string()],
             env: std::collections::BTreeMap::new(),
             exit_code: 0,
@@ -548,9 +548,9 @@ mod tests {
         // Create 1MB of output
         let large_output = vec![b'A'; 1024 * 1024];
 
-        write_memo(&cache_dir, digest, &memo, &large_output, b"").unwrap();
+        write_shmemo(&cache_dir, digest, &shmemo, &large_output, b"").unwrap();
 
-        let (_, stdout, _) = read_memo(&cache_dir, digest).unwrap();
+        let (_, stdout, _) = read_shmemo(&cache_dir, digest).unwrap();
         assert_eq!(stdout.len(), 1024 * 1024);
         assert_eq!(stdout, large_output);
     }
@@ -561,7 +561,7 @@ mod tests {
         ensure_cache_dir(&cache_dir).unwrap();
 
         let digest = "stream123";
-        let memo = Memo {
+        let shmemo = Shmemo {
             cmd: vec!["test".to_string()],
             env: std::collections::BTreeMap::new(),
             exit_code: 0,
@@ -570,7 +570,7 @@ mod tests {
             expires_at: None,
         };
 
-        write_memo(&cache_dir, digest, &memo, b"output data", b"error data").unwrap();
+        write_shmemo(&cache_dir, digest, &shmemo, b"output data", b"error data").unwrap();
 
         let mut output = Vec::new();
         stream_stdout(&cache_dir, digest, &mut output).unwrap();
@@ -583,7 +583,7 @@ mod tests {
         ensure_cache_dir(&cache_dir).unwrap();
 
         let digest = "stream456";
-        let memo = Memo {
+        let shmemo = Shmemo {
             cmd: vec!["test".to_string()],
             env: std::collections::BTreeMap::new(),
             exit_code: 0,
@@ -592,7 +592,7 @@ mod tests {
             expires_at: None,
         };
 
-        write_memo(&cache_dir, digest, &memo, b"output data", b"error data").unwrap();
+        write_shmemo(&cache_dir, digest, &shmemo, b"output data", b"error data").unwrap();
 
         let mut errors = Vec::new();
         stream_stderr(&cache_dir, digest, &mut errors).unwrap();
@@ -600,12 +600,12 @@ mod tests {
     }
 
     #[test]
-    fn test_read_memo_metadata() {
+    fn test_read_shmemo_metadata() {
         let (_temp, cache_dir) = setup_test_cache();
         ensure_cache_dir(&cache_dir).unwrap();
 
         let digest = "meta123";
-        let memo = Memo {
+        let shmemo = Shmemo {
             cmd: vec!["echo".to_string(), "test".to_string()],
             env: std::collections::BTreeMap::new(),
             exit_code: 42,
@@ -614,9 +614,9 @@ mod tests {
             expires_at: None,
         };
 
-        write_memo(&cache_dir, digest, &memo, b"large output here", b"errors").unwrap();
+        write_shmemo(&cache_dir, digest, &shmemo, b"large output here", b"errors").unwrap();
 
-        let read_meta = read_memo_metadata(&cache_dir, digest).unwrap();
+        let read_meta = read_shmemo_metadata(&cache_dir, digest).unwrap();
         assert_eq!(read_meta.cmd, vec!["echo", "test"]);
         assert_eq!(read_meta.exit_code, 42);
         assert_eq!(read_meta.digest, digest);

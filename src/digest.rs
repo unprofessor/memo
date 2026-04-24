@@ -27,7 +27,7 @@ use sha2::{Digest, Sha256};
 /// # Examples
 ///
 /// ```
-/// # use memo::digest::compute_digest;
+/// # use shmemo::digest::compute_digest;
 /// # use std::collections::BTreeMap;
 /// let args = vec!["echo".to_string(), "hello".to_string()];
 /// let env = BTreeMap::new();

@@ -25,4 +25,4 @@
 - **Safety**: Avoid `unsafe` unless absolutely required.
 - **Conventions**: Follow standard Rust idioms (snake_case for functions/vars, CamelCase for types).
 - **Paths**: Use `std::path::PathBuf` for file paths.
-- **Logging**: Use `eprintln!` for CLI status messages (prefixed with `:: memo ::`) to avoid polluting stdout.
+- **Logging**: Use `eprintln!` for CLI status messages (prefixed with `:: shmemo ::`) to avoid polluting stdout.

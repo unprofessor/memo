@@ -1,4 +1,4 @@
-//! Constants used throughout the memo application
+//! Constants used throughout the shmemo application
 
 /// Permission mode for cache directory (owner read/write/execute only)
 #[cfg(unix)]

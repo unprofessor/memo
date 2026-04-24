@@ -5,7 +5,7 @@
 //! outputs into memory while providing real-time console feedback.
 
 use crate::constants::FILE_PERMISSIONS;
-use crate::error::{MemoError, Result};
+use crate::error::{ShmemoError, Result};
 use std::cell::RefCell;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
@@ -96,7 +96,7 @@ impl<W: Write> Write for TeeWriter<W> {
 /// # Examples
 ///
 /// ```
-/// # use memo::executor::build_command_string;
+/// # use shmemo::executor::build_command_string;
 /// let args = vec!["echo".to_string(), "hello".to_string()];
 /// assert_eq!(build_command_string(&args), "echo hello");
 /// ```
@@ -144,7 +144,7 @@ fn create_secure_file(path: &Path) -> std::io::Result<File> {
 /// # Examples
 ///
 /// ```no_run
-/// # use memo::executor::execute_and_stream;
+/// # use shmemo::executor::execute_and_stream;
 /// # use std::path::Path;
 /// let result = execute_and_stream(
 ///     &["echo", "hello"],
@@ -159,7 +159,7 @@ pub fn execute_and_stream(
     stderr_path: &Path,
 ) -> Result<ExecutionResult> {
     if args.is_empty() {
-        return Err(MemoError::InvalidCommand("No command provided".to_string()));
+        return Err(ShmemoError::InvalidCommand("No command provided".to_string()));
     }
 
     let stdout_file = create_secure_file(stdout_path)?;
@@ -222,13 +222,13 @@ pub fn execute_and_stream(
 /// # Examples
 ///
 /// ```no_run
-/// # use memo::executor::execute_direct;
+/// # use shmemo::executor::execute_direct;
 /// let result = execute_direct(&["echo", "hello"]).expect("Command failed");
 /// assert_eq!(result.exit_code, 0);
 /// ```
 pub fn execute_direct(args: &[&str]) -> Result<ExecutionResult> {
     if args.is_empty() {
-        return Err(MemoError::InvalidCommand("No command provided".to_string()));
+        return Err(ShmemoError::InvalidCommand("No command provided".to_string()));
     }
 
     let status = Command::new(args[0]).args(&args[1..]).status()?;

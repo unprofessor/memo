@@ -1,8 +1,8 @@
 use log::{Level, Log, Metadata, Record};
 
-pub struct MemoLogger;
+pub struct ShmemoLogger;
 
-impl Log for MemoLogger {
+impl Log for ShmemoLogger {
     fn enabled(&self, _metadata: &Metadata) -> bool {
         true
     }
@@ -23,6 +23,6 @@ impl Log for MemoLogger {
 }
 
 pub fn init(level: log::LevelFilter) -> Result<(), log::SetLoggerError> {
-    static LOGGER: MemoLogger = MemoLogger;
+    static LOGGER: ShmemoLogger = ShmemoLogger;
     log::set_logger(&LOGGER).map(|()| log::set_max_level(level))
 }

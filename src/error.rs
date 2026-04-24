@@ -1,11 +1,11 @@
-//! Error types for the memo application
+//! Error types for the shmemo application
 
 use std::io;
 use thiserror::Error;
 
-/// The main error type for memo operations
+/// The main error type for shmemo operations
 #[derive(Debug, Error)]
-pub enum MemoError {
+pub enum ShmemoError {
     /// An I/O error occurred
     #[error("I/O error: {0}")]
     Io(#[from] io::Error),
@@ -31,13 +31,13 @@ pub enum MemoError {
     InvalidTtl(String),
 }
 
-/// Result type alias for memo operations
-pub type Result<T> = std::result::Result<T, MemoError>;
+/// Result type alias for shmemo operations
+pub type Result<T> = std::result::Result<T, ShmemoError>;
 
-impl From<MemoError> for io::Error {
-    fn from(err: MemoError) -> Self {
+impl From<ShmemoError> for io::Error {
+    fn from(err: ShmemoError) -> Self {
         match err {
-            MemoError::Io(io_err) => io_err,
+            ShmemoError::Io(io_err) => io_err,
             other => io::Error::other(other.to_string()),
         }
     }

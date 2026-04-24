@@ -9,7 +9,7 @@ use tempfile::TempDir;
 /// Test environment for integration tests
 ///
 /// Provides a clean temporary cache directory and helper methods for
-/// interacting with the memo binary.
+/// interacting with the shmemo binary.
 struct TestEnv {
     cache_dir: TempDir,
 }
@@ -26,7 +26,7 @@ impl TestEnv {
         self.cache_dir.path().to_path_buf()
     }
 
-    /// Create a configured Command for the memo binary
+    /// Create a configured Command for the shmemo binary
     ///
     /// The command is pre-configured with the test cache directory.
     fn cmd(&self) -> Command {
@@ -37,12 +37,12 @@ impl TestEnv {
 
     /// List all cache entries (digest directories) in sorted order
     fn list_cache_entries(&self) -> Vec<String> {
-        let memo_dir = self.cache_path().join("shmemo");
-        if !memo_dir.exists() {
+        let shmemo_dir = self.cache_path().join("shmemo");
+        if !shmemo_dir.exists() {
             return vec![];
         }
 
-        let mut entries: Vec<String> = fs::read_dir(&memo_dir)
+        let mut entries: Vec<String> = fs::read_dir(&shmemo_dir)
             .unwrap()
             .filter_map(|e| {
                 let entry = e.unwrap();
@@ -82,7 +82,7 @@ impl TestEnv {
         );
     }
 
-    /// Run N concurrent invocations of memo with the same command. Returns the
+    /// Run N concurrent invocations of shmemo with the same command. Returns the
     /// stderr output of all invocations concatenated (for diagnosing races).
     fn run_concurrent(&self, n: usize) -> String {
         let bin = assert_cmd::cargo::cargo_bin!("shmemo");
@@ -119,10 +119,10 @@ impl TestEnv {
     /// Assert that cache structure is valid (each directory has meta.json, stdout, stderr)
     fn assert_valid_cache_structure(&self) {
         let entries = self.list_cache_entries();
-        let memo_dir = self.cache_path().join("shmemo");
+        let shmemo_dir = self.cache_path().join("shmemo");
 
         for entry in &entries {
-            let digest_dir = memo_dir.join(entry);
+            let digest_dir = shmemo_dir.join(entry);
             assert!(
                 digest_dir.join("meta.json").exists(),
                 "Missing meta.json in {}",
@@ -447,8 +447,8 @@ fn test_cache_directory_creation() {
     let env = TestEnv::new();
 
     // Cache dir should not exist initially
-    let memo_dir = env.cache_path().join("shmemo");
-    assert!(!memo_dir.exists());
+    let shmemo_dir = env.cache_path().join("shmemo");
+    assert!(!shmemo_dir.exists());
 
     // Run command
     env.cmd()
@@ -459,7 +459,7 @@ fn test_cache_directory_creation() {
         .stdout("test\n");
 
     // Cache dir should now exist with three files
-    assert!(memo_dir.exists());
+    assert!(shmemo_dir.exists());
     env.assert_cache_file_count(3);
     env.assert_valid_cache_structure();
 }
@@ -512,10 +512,10 @@ fn test_cache_file_structure() {
     let digest = &entries[0];
 
     // Verify all three files exist within the digest directory
-    let memo_dir = env.cache_path().join("shmemo").join(digest);
-    assert!(memo_dir.join("meta.json").exists());
-    assert!(memo_dir.join("stdout").exists());
-    assert!(memo_dir.join("stderr").exists());
+    let shmemo_dir = env.cache_path().join("shmemo").join(digest);
+    assert!(shmemo_dir.join("meta.json").exists());
+    assert!(shmemo_dir.join("stdout").exists());
+    assert!(shmemo_dir.join("stderr").exists());
 
     // Verify stdout contains the output
     let out_content = env.read_cache_file(digest, "stdout");

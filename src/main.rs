@@ -1,7 +1,7 @@
 //! # Shmemo - Command Memoization Tool
 //!
-//! Memo is a command-line tool that memoizes (caches) shell command execution results.
-//! When you run a command through memo, it stores the stdout, stderr, and exit code.
+//! Shmemo is a command-line tool that memoizes (caches) shell command execution results.
+//! When you run a command through shmemo, it stores the stdout, stderr, and exit code.
 //! Subsequent executions of the same command will replay the cached results instantly
 //! without re-running the command.
 //!
@@ -18,17 +18,17 @@
 //!
 //! ```bash
 //! # First run executes the command
-//! memo echo "Hello, World!"
+//! shmemo echo "Hello, World!"
 //!
 //! # Second run replays from cache (instant)
-//! memo echo "Hello, World!"
+//! shmemo echo "Hello, World!"
 //!
 //! # Verbose mode shows cache hits/misses
-//! memo -v ls -la /etc
+//! shmemo -v ls -la /etc
 //!
 //! # Commands with different arguments create separate cache entries
-//! memo echo "foo"
-//! memo echo "bar"
+//! shmemo echo "foo"
+//! shmemo echo "bar"
 //! ```
 //!
 //! ## Features
@@ -45,11 +45,11 @@ mod digest;
 mod error;
 mod executor;
 mod logger;
-mod memo;
+mod shmemo;
 
 use cache::{
     cleanup_temp_dirs, commit_cache_dir, create_temp_cache_dir, ensure_cache_dir, get_cache_dir,
-    is_memo_disabled, memo_complete, read_memo_metadata, stream_stderr, stream_stdout,
+    is_shmemo_disabled, shmemo_complete, read_shmemo_metadata, stream_stderr, stream_stdout,
 };
 use chrono::Utc;
 use clap::Parser;
@@ -57,7 +57,7 @@ use digest::compute_digest;
 use error::Result;
 use executor::{build_command_string, execute_and_stream, execute_direct};
 use log::{debug, error, info};
-use memo::Memo;
+use shmemo::Shmemo;
 use std::fs;
 use std::io::{self, Write};
 use std::process;
@@ -76,7 +76,7 @@ use std::process;
 )]
 #[command(about = "Memoize shell command execution", long_about = None)]
 #[command(after_help = "** SECURITY WARNING **\n\n\
-    Memoization caches stdout/stderr to disk UNENCRYPTED. Do NOT use memo with commands \
+    Memoization caches stdout/stderr to disk UNENCRYPTED. Do NOT use shmemo with commands \
 that output sensitive information such as:\n\
     - Authentication tokens or API keys\n\
     - Passwords or credentials\n\
@@ -89,8 +89,8 @@ struct Cli {
     #[arg(short, long, action = clap::ArgAction::Count, help = "Increase verbosity (-v, -vv, -vvv)")]
     verbose: u8,
 
-    /// Suppress all memo messages (even errors)
-    #[arg(short, long, help = "Suppress all memo messages (even errors)")]
+    /// Suppress all shmemo messages (even errors)
+    #[arg(short, long, help = "Suppress all shmemo messages (even errors)")]
     quiet: bool,
 
     /// Cache expiration time (e.g. "1h 30m", "10s")
@@ -145,7 +145,7 @@ fn main() {
 
 fn run(args: Cli) -> Result<i32> {
     // Check if memoization is disabled
-    if is_memo_disabled() {
+    if is_shmemo_disabled() {
         info!("disabled");
 
         // Convert Vec<String> to Vec<&str>
@@ -169,7 +169,7 @@ fn run(args: Cli) -> Result<i32> {
     let parsed_ttl = match args.ttl {
         Some(ttl_str) => {
             let duration = humantime::parse_duration(&ttl_str)
-                .map_err(|_| crate::error::MemoError::InvalidTtl(ttl_str.clone()))?;
+                .map_err(|_| crate::error::ShmemoError::InvalidTtl(ttl_str.clone()))?;
             Some(duration)
         }
         None => None,
@@ -199,12 +199,12 @@ fn run(args: Cli) -> Result<i32> {
     debug!("Computing digest for command: {:?}", args.command);
     let digest = compute_digest(&args.command, &env_vars)?;
 
-    // Check if memo exists
-    if memo_complete(&cache_dir, &digest) {
+    // Check if shmemo exists
+    if shmemo_complete(&cache_dir, &digest) {
         // Read metadata
-        match read_memo_metadata(&cache_dir, &digest) {
-            Ok(memo) => {
-                if memo.is_expired() {
+        match read_shmemo_metadata(&cache_dir, &digest) {
+            Ok(shmemo) => {
+                if shmemo.is_expired() {
                     info!("expired `{command_string}` => {digest}");
                     // Delete the expired directory to avoid DirectoryNotEmpty errors on next commit
                     let digest_dir = cache_dir.join(&digest);
@@ -220,7 +220,7 @@ fn run(args: Cli) -> Result<i32> {
                     stream_stderr(&cache_dir, &digest, io::stderr())?;
 
                     // Exit with stored exit code
-                    return Ok(memo.exit_code);
+                    return Ok(shmemo.exit_code);
                 }
             }
             Err(e) => {
@@ -259,8 +259,8 @@ fn run(args: Cli) -> Result<i32> {
         error!("could not write {}", path.display());
     }
 
-    // Create memo metadata
-    let memo = Memo {
+    // Create shmemo metadata
+    let shmemo = Shmemo {
         cmd: args.command.clone(),
         env: env_vars,
         exit_code: result.exit_code,
@@ -270,7 +270,7 @@ fn run(args: Cli) -> Result<i32> {
     };
 
     // Write metadata to JSON
-    let json = serde_json::to_string_pretty(&memo)?;
+    let json = serde_json::to_string_pretty(&shmemo)?;
     {
         let mut f = fs::File::create(&json_path)?;
         f.write_all(json.as_bytes())?;

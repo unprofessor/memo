@@ -1,6 +1,6 @@
 # shmemo
 
-*memo* is a small program that memoizes (caches) shell command executions.
+*shmemo* is a small program that memoizes (caches) shell command executions.
 
 Run a command through `shmemo` once and it records:
 
@@ -130,7 +130,7 @@ Concurrent cache misses for the same digest are handled without locks:
 
 ## Security / safety
 
-Memo writes command output to disk **unencrypted**. Do not use it with commands
+Shmemo writes command output to disk **unencrypted**. Do not use it with commands
 that print sensitive data (tokens, credentials, private keys, PII, etc.).
 
 On \*nix, the cache directory and output files are created with restrictive

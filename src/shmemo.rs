@@ -1,4 +1,4 @@
-//! Memo metadata structure
+//! Shmemo metadata structure
 //!
 //! This module defines the metadata structure that is serialized to JSON
 //! and stored in the cache directory.
@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 /// It does not contain the actual stdout/stderr data, which are stored
 /// separately in `.out` and `.err` files.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct Memo {
+pub struct Shmemo {
     /// The command arguments that were executed
     pub cmd: Vec<String>,
     /// Environment variables considered for the cache key
@@ -28,7 +28,7 @@ pub struct Memo {
     pub digest: String,
 }
 
-impl Memo {
+impl Shmemo {
     /// Check if the cache entry has expired
     pub fn is_expired(&self) -> bool {
         if let Some(expires_at_str) = &self.expires_at {
@@ -50,12 +50,12 @@ mod tests {
     }
 
     #[test]
-    fn test_memo_serialization() {
+    fn test_shmemo_serialization() {
         let mut env = BTreeMap::new();
         env.insert("FOO".to_string(), Some("bar".to_string()));
         env.insert("MISSING".to_string(), None);
 
-        let memo = Memo {
+        let shmemo = Shmemo {
             cmd: vec!["echo".to_string(), "hello".to_string()],
             env,
             exit_code: 0,
@@ -64,7 +64,7 @@ mod tests {
             expires_at: None,
         };
 
-        let json_str = serde_json::to_string(&memo).unwrap();
+        let json_str = serde_json::to_string(&shmemo).unwrap();
         let value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
 
         assert_eq!(value["cmd"], json!(["echo", "hello"]));
@@ -80,7 +80,7 @@ mod tests {
     }
 
     #[test]
-    fn test_memo_deserialization() {
+    fn test_shmemo_deserialization() {
         let json_str = r#"{
             "cmd": ["echo", "test"],
             "env": {
@@ -92,17 +92,17 @@ mod tests {
             "digest": "def456"
         }"#;
 
-        let memo: Memo = serde_json::from_str(json_str).unwrap();
-        assert_eq!(memo.cmd, vec!["echo", "test"]);
-        assert_eq!(memo.env.get("SOME_VAR").unwrap().as_deref(), Some("value"));
-        assert_eq!(memo.env.get("UNSET_VAR").unwrap(), &None);
-        assert_eq!(memo.exit_code, 42);
-        assert_eq!(memo.digest, "def456");
+        let shmemo: Shmemo = serde_json::from_str(json_str).unwrap();
+        assert_eq!(shmemo.cmd, vec!["echo", "test"]);
+        assert_eq!(shmemo.env.get("SOME_VAR").unwrap().as_deref(), Some("value"));
+        assert_eq!(shmemo.env.get("UNSET_VAR").unwrap(), &None);
+        assert_eq!(shmemo.exit_code, 42);
+        assert_eq!(shmemo.digest, "def456");
     }
 
     #[test]
-    fn test_memo_roundtrip() {
-        let original = Memo {
+    fn test_shmemo_roundtrip() {
+        let original = Shmemo {
             cmd: vec!["ls".to_string(), "-la".to_string()],
             env: BTreeMap::new(),
             exit_code: 1,
@@ -112,14 +112,14 @@ mod tests {
         };
 
         let json_str = serde_json::to_string(&original).unwrap();
-        let deserialized: Memo = serde_json::from_str(&json_str).unwrap();
+        let deserialized: Shmemo = serde_json::from_str(&json_str).unwrap();
 
         assert_eq!(original, deserialized);
     }
 
     #[test]
-    fn test_memo_with_special_characters() {
-        let memo = Memo {
+    fn test_shmemo_with_special_characters() {
+        let shmemo = Shmemo {
             cmd: vec!["echo".to_string(), "\"hello\" 'world' $USER".to_string()],
             env: BTreeMap::new(),
             exit_code: 0,
@@ -128,15 +128,15 @@ mod tests {
             expires_at: None,
         };
 
-        let json_str = serde_json::to_string(&memo).unwrap();
-        let deserialized: Memo = serde_json::from_str(&json_str).unwrap();
+        let json_str = serde_json::to_string(&shmemo).unwrap();
+        let deserialized: Shmemo = serde_json::from_str(&json_str).unwrap();
 
-        assert_eq!(memo.cmd, deserialized.cmd);
+        assert_eq!(shmemo.cmd, deserialized.cmd);
     }
 
     #[test]
-    fn test_memo_negative_exit_code() {
-        let memo = Memo {
+    fn test_shmemo_negative_exit_code() {
+        let shmemo = Shmemo {
             cmd: vec!["test".to_string()],
             env: BTreeMap::new(),
             exit_code: -1,
@@ -145,15 +145,15 @@ mod tests {
             expires_at: None,
         };
 
-        let json_str = serde_json::to_string(&memo).unwrap();
-        let deserialized: Memo = serde_json::from_str(&json_str).unwrap();
+        let json_str = serde_json::to_string(&shmemo).unwrap();
+        let deserialized: Shmemo = serde_json::from_str(&json_str).unwrap();
 
-        assert_eq!(memo.exit_code, deserialized.exit_code);
+        assert_eq!(shmemo.exit_code, deserialized.exit_code);
     }
 
     #[test]
-    fn test_memo_multiline_command() {
-        let memo = Memo {
+    fn test_shmemo_multiline_command() {
+        let shmemo = Shmemo {
             cmd: vec![
                 "sh".to_string(),
                 "-c".to_string(),
@@ -166,9 +166,9 @@ mod tests {
             expires_at: None,
         };
 
-        let json_str = serde_json::to_string(&memo).unwrap();
-        let deserialized: Memo = serde_json::from_str(&json_str).unwrap();
+        let json_str = serde_json::to_string(&shmemo).unwrap();
+        let deserialized: Shmemo = serde_json::from_str(&json_str).unwrap();
 
-        assert_eq!(memo.cmd, deserialized.cmd);
+        assert_eq!(shmemo.cmd, deserialized.cmd);
     }
 }
