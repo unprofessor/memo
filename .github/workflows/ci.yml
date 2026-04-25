@@ -54,7 +54,7 @@ jobs:
       run: |
         set -xeuo pipefail
 
-        guix shell -m manifest.scm -- sh -c "cargo build --release"
+        guix shell -m manifest.scm -- cargo build --release
 
         # Create a release directory
         mkdir -p target/artifact/bin
@@ -67,13 +67,11 @@ jobs:
 
     - name: Lint
       run: |
-        cargo clippy -- -D warnings
+        guix shell -m manifest.scm -- cargo clippy -- -D warnings
 
     - name: Test
       run: |
-        guix shell -m manifest.scm -- sh <<'EOF'
-          cargo test
-        EOF
+        guix shell -m manifest.scm -- cargo test
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v6
