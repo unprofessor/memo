@@ -902,3 +902,63 @@ fn test_ttl_cache_expiration() {
         .stderr(predicate::str::contains("expired `echo expiring`"))
         .stderr(predicate::str::contains("miss `echo expiring`"));
 }
+
+#[test]
+fn test_refresh_flag() {
+    let env = TestEnv::new();
+
+    // First run - miss
+    env.cmd()
+        .arg("echo")
+        .arg("refresh-test")
+        .assert()
+        .success()
+        .stdout("refresh-test\n");
+
+    // Ensure we have 1 entry
+    env.assert_cache_entry_count(1);
+
+    // Second run - normal hit
+    env.cmd()
+        .arg("-vv")
+        .arg("echo")
+        .arg("refresh-test")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("hit `echo refresh-test`"));
+
+    // Third run - refresh
+    env.cmd()
+        .arg("-vv")
+        .arg("--refresh")
+        .arg("echo")
+        .arg("refresh-test")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("refreshing `echo refresh-test`"))
+        .stderr(predicate::str::contains("miss `echo refresh-test`"));
+
+    // Should still only have 1 entry
+    env.assert_cache_entry_count(1);
+
+    // Fourth run - verify it works as a normal hit again
+    env.cmd()
+        .arg("-vv")
+        .arg("echo")
+        .arg("refresh-test")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("hit `echo refresh-test`"));
+}
+
+#[test]
+fn test_refresh_purge_conflict() {
+    let env = TestEnv::new();
+
+    env.cmd()
+        .arg("--purge")
+        .arg("--refresh")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+}

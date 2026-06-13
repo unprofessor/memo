@@ -36,8 +36,8 @@
   - Default TTL is infinite (no expiration)
   - If it exists, store expiration time in metadata alongside cached entry
   - On retrieval, if entry has expiration and is expired, treat as cache miss
-- [ ] Argument to evict existing entry
-  - e.g. `--evict` to remove existing cache entry for the given command
+- [x] Argument to evict existing entry
+  - e.g. `--refresh` to force execution and update the cache, ignoring existing entry
 - [x] Argument to purge all cache entries
   - e.g. `--purge` to clear the entire cache
   - Not to be used with command to cache; only purges cache

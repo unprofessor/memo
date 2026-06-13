@@ -107,8 +107,12 @@ struct Cli {
     env: Option<Vec<String>>,
 
     /// Purge all cache entries
-    #[arg(long, conflicts_with_all = ["env", "command"], help = "Purge all cache entries")]
+    #[arg(long, conflicts_with_all = ["env", "command", "refresh"], help = "Purge all cache entries")]
     purge: bool,
+
+    /// Force execution and update the cache, ignoring existing entry
+    #[arg(long, help = "Force execution and update the cache, ignoring existing entry")]
+    refresh: bool,
 
     /// Command to execute/memoize
     #[arg(
@@ -201,30 +205,38 @@ fn run(args: Cli) -> Result<i32> {
 
     // Check if shmemo exists
     if shmemo_complete(&cache_dir, &digest) {
-        // Read metadata
-        match read_shmemo_metadata(&cache_dir, &digest) {
-            Ok(shmemo) => {
-                if shmemo.is_expired() {
-                    info!("expired `{command_string}` => {digest}");
-                    // Delete the expired directory to avoid DirectoryNotEmpty errors on next commit
-                    let digest_dir = cache_dir.join(&digest);
-                    if let Err(e) = std::fs::remove_dir_all(&digest_dir) {
-                        log::warn!("Failed to delete expired cache directory: {}", e);
-                    }
-                } else {
-                    // Cache hit - replay
-                    info!("hit `{command_string}` => {digest}");
-
-                    // Stream output to stdout/stderr
-                    stream_stdout(&cache_dir, &digest, io::stdout())?;
-                    stream_stderr(&cache_dir, &digest, io::stderr())?;
-
-                    // Exit with stored exit code
-                    return Ok(shmemo.exit_code);
-                }
+        if args.refresh {
+            info!("refreshing `{command_string}` => {digest}");
+            let digest_dir = cache_dir.join(&digest);
+            if let Err(e) = std::fs::remove_dir_all(&digest_dir) {
+                log::warn!("Failed to delete existing cache directory during refresh: {}", e);
             }
-            Err(e) => {
-                log::warn!("Failed to read metadata for {}: {}", digest, e);
+        } else {
+            // Read metadata
+            match read_shmemo_metadata(&cache_dir, &digest) {
+                Ok(shmemo) => {
+                    if shmemo.is_expired() {
+                        info!("expired `{command_string}` => {digest}");
+                        // Delete the expired directory to avoid DirectoryNotEmpty errors on next commit
+                        let digest_dir = cache_dir.join(&digest);
+                        if let Err(e) = std::fs::remove_dir_all(&digest_dir) {
+                            log::warn!("Failed to delete expired cache directory: {}", e);
+                        }
+                    } else {
+                        // Cache hit - replay
+                        info!("hit `{command_string}` => {digest}");
+
+                        // Stream output to stdout/stderr
+                        stream_stdout(&cache_dir, &digest, io::stdout())?;
+                        stream_stderr(&cache_dir, &digest, io::stderr())?;
+
+                        // Exit with stored exit code
+                        return Ok(shmemo.exit_code);
+                    }
+                }
+                Err(e) => {
+                    log::warn!("Failed to read metadata for {}: {}", digest, e);
+                }
             }
         }
     }
